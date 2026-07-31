@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>无畏契约｜个人专属灵敏度生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", sans-serif;
+        }
+        body {
+            background: #0f1923;
+            color: #eee;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #ff4655;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .grid-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: #1a242d;
+            border: 1px solid #38434e;
+            border-radius: 10px;
+            padding: 18px;
+        }
+        .panel h2 {
+            color: #ff8892;
+            margin-bottom:16px;
+            font-size:18px;
+        }
+        .form-row {
+            margin-bottom:14px;
+        }
+        label {
+            display:block;
+            margin-bottom:6px;
+            color:#c9d1d9;
+        }
+        input[type="number"] {
+            width:100%;
+            padding:10px;
+            background:#0f1923;
+            border:1px solid #38434e;
+            color:#fff;
+            border-radius:6px;
+            font-size:16px;
+        }
+        button {
+            padding:10px 16px;
+            background:#ff4655;
+            color:white;
+            border:none;
+            border-radius:6px;
+            cursor:pointer;
+            font-weight:bold;
+            transition:0.2s;
+        }
+        button:hover {
+            background:#ff5c69;
+        }
+        button.secondary {
+            background:#38434e;
+        }
+        button.secondary:hover {
+            background:#485460;
+        }
+        #gameCanvas {
+            background:#0b1219;
+            border:1px solid #333;
+            border-radius:8px;
+            cursor:none;
+        }
+        .result-box {
+            margin-top:16px;
+            padding:14px;
+            background:#0b1219;
+            border:1px solid #ff4655;
+            border-radius:8px;
+        }
+        .sens-value {
+            font-size:26px;
+            color:#5cf398;
+            font-weight:bold;
+            margin:8px 0;
+        }
+        .tip {
+            color:#999;
+            font-size:13px;
+            margin-top:6px;
+        }
+        .tab-buttons {
+            display:flex;
+            gap:8px;
+            margin-bottom:12px;
+        }
+        .hidden {
+            display:none;
+        }
+        .countdown-text {
+            font-size:48px;
+            text-align:center;
+            color:#ff4655;
+            line-height:400px;
+        }
+        .crosshair {
+            position:absolute;
+            width:20px;
+            height:20px;
+            pointer-events:none;
+            transform:translate(-50%,-50%);
+        }
+        .crosshair::before,.crosshair::after {
+            content:"";
+            position:absolute;
+            background:#fff;
+        }
+        .crosshair::before {
+            width:2px;height:20px;left:9px;top:0;
+        }
+        .crosshair::after {
+            width:20px;height:2px;left:0;top:9px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>无畏契约 个人专属灵敏度生成器</h1>
+    <div class="grid-wrap">
+        <div class="panel">
+            <h2>基础鼠标参数设置</h2>
+            <div class="form-row">
+                <label>鼠标DPI（例如800 / 1600）</label>
+                <input id="dpi" type="number" value="800" min="100" max="32000">
+            </div>
+            <div class="form-row">
+                <label>当前正在使用的灵敏度（可选）</label>
+                <input id="currSens" type="number" step="0.01" value="0.5" min="0.1" max="10">
+            </div>
+            <div class="form-row">
+                <label>偏好EDPI参考（DPI×灵敏度）</label>
+                <input id="targetEDPI" type="number" value="400" min="10" max="30000">
+                <div class="tip">新手推荐200~400；进阶400~800</div>
+            </div>
+            <hr style="margin:20px 0;border-color:#333">
+            <h2>测试区域</h2>
+            <div class="tab-buttons">
+                <button onclick="switchTest('track')">Aimlab追踪测试（触碰计分）</button>
+                <button onclick="switchTest('aim')">静态瞄准测试（带准星）</button>
+            </div>
+            <canvas id="gameCanvas" width="560" height="400"></canvas>
+            <div class="crosshair" id="cross"></div>
+            <div style="margin-top:10px;display:flex;gap:8px;">
+                <button onclick="startTest()" id="startBtn">开始测试</button>
+                <button class="secondary" onclick="resetTest()">重置测试</button>
+            </div>
+            <div class="tip" id="testTip">选择测试项目，点击开始。追踪测试：鼠标碰到目标自动得分，无需点击</div>
+        </div>
+
+        <div class="panel">
+            <h2>测试数据 & 专属灵敏度计算</h2>
+            <div class="form-row">
+                <label>追踪测试得分：<span id="trackScore">0</span></label>
+            </div>
+            <div class="form-row">
+                <label>瞄准测试稳定度评分：<span id="aimScore">0</span>/100</label>
+            </div>
+            <button onclick="calcSensitivity()" style="margin:10px 0;">生成【无畏契约可用灵敏度】</button>
+
+            <div class="result-box">
+                <h3>✅ 推荐游戏灵敏度（可直接复制进Valorant）</h3>
+                <div class="sens-value" id="finalSens">--</div>
+                <div>对应EDPI：<span id="finalEDPI">--</span></div>
+                <div class="tip">范围0.10 ~ 10.00，完全适配当前无畏契约正式服</div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <h3>使用建议</h3>
+                <ul style="padding-left:20px;color:#c9d1d9;font-size:14px;line-height:1.6;">
+                    <li>复制生成数值，打开无畏契约 → 设置 → 控制 → 鼠标灵敏度</li>
+                    <li>优先进行3轮测试取平均分，结果更加稳定</li>
+                    <li>瞄准测试分数越高，代表当前速度越适合精细定位</li>
+                    <li>追踪分数越高，代表大幅度转身、跟枪舒适度更好</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const cross = document.getElementById("cross");
+let testMode = "track";
+let countdown = 0;
+let testRunning = false;
+let trackScore = 0;
+let aimStability = 0;
+let aimPositionList = [];
+
+// 目标物体
+let targets = [];
+
+// 切换测试模式
+function switchTest(mode) {
+    testMode = mode;
+    resetTest();
+    if(mode === "track"){
+        document.getElementById("testTip").innerText = "追踪测试：移动鼠标触碰色块自动得分，无需点击，持续跟随目标";
+    }else{
+        document.getElementById("testTip").innerText = "瞄准测试：保持准星停留在中心目标，倒计时结束自动计算稳定分数";
+    }
+}
+
+// 重置所有测试
+function resetTest() {
+    testRunning = false;
+    countdown = 0;
+    trackScore = 0;
+    aimStability = 0;
+    aimPositionList = [];
+    targets = [];
+    document.getElementById("trackScore").innerText = "0";
+    document.getElementById("aimScore").innerText = "0";
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+// 开始测试+倒计时
+function startTest() {
+    if(testRunning) return;
+    resetTest();
+    testRunning = true;
+    countdown = 3;
+    runCountdown();
+}
+
+// 稳定倒计时（无卡顿）
+function runCountdown() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#ff4655";
+    ctx.font="48px sans-serif";
+    ctx.textAlign="center";
+    ctx.fillText(countdown > 0 ? countdown : "开始！", canvas.width/2, canvas.height/2);
+    if(countdown > 0){
+        countdown--;
+        setTimeout(runCountdown, 1000);
+    }else{
+        setTimeout(beginGame, 400);
+    }
+}
+
+// 正式测试启动
+function beginGame() {
+    if(testMode === "track"){
+        spawnTrackTarget();
+    }else{
+        spawnAimTarget();
+    }
+    gameLoop();
+}
+
+// 生成追踪目标
+function spawnTrackTarget() {
+    const size = 36;
+    targets = [{
+        x: Math.random()*(canvas.width-size),
+        y: Math.random()*(canvas.height-size),
+        w: size,
+        h: size,
+        dx: (Math.random()-0.5)*2.2,
+        dy: (Math.random()-0.5)*2.2
+    }];
+}
+// 瞄准静态目标
+function spawnAimTarget() {
+    targets = [{
+        x: canvas.width/2 - 22,
+        y: canvas.height/2 -22,
+        w:44,
+        h:44,
+        static:true
+    }];
+    // 记录鼠标位置持续3.5秒计算稳定性
+    const recordTime = 3500;
+    const start = Date.now();
+    function recordPos(){
+        if(!testRunning) return;
+        const rect = canvas.getBoundingClientRect();
+        aimPositionList.push({
+            x: cross.offsetLeft - rect.left,
+            y: cross.offsetTop - rect.top
+        });
+        if(Date.now() - start < recordTime){
+            requestAnimationFrame(recordPos);
+        }else{
+            calcAimStability();
+        }
+    }
+    recordPos();
+}
+
+// 计算瞄准稳定度分数
+function calcAimStability() {
+    let devSum = 0;
+    const cx = canvas.width/2;
+    const cy = canvas.height/2;
+    aimPositionList.forEach(p=>{
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        devSum += Math.sqrt(dx*dx+dy*dy);
+    });
+    const avgDev = devSum / aimPositionList.length;
+    let score = Math.max(0, 100 - avgDev * 1.6);
+    aimStability = parseFloat(score.toFixed(1));
+    document.getElementById("aimScore").innerText = aimStability;
+    testRunning = false;
+}
+
+// 游戏渲染循环
+function gameLoop() {
+    if(!testRunning) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#38434e";
+    targets.forEach(t=>{
+        ctx.fillRect(t.x,t.y,t.w,t.h);
+        // 移动目标
+        if(!t.static){
+            t.x += t.dx;
+            t.y += t.dy;
+            // 边界反弹
+            if(t.x <=0 || t.x+t.w >= canvas.width) t.dx *= -1;
+            if(t.y <=0 || t.y+t.h >= canvas.height) t.dy *= -1;
+
+            // 检测鼠标触碰（准星和目标碰撞）
+            const crossX = cross.offsetLeft - canvas.getBoundingClientRect().left;
+            const crossY = cross.offsetTop - canvas.getBoundingClientRect().top;
+            if(crossX > t.x && crossX < t.x+t.w && crossY>t.y && crossY<t.y+t.h){
+                trackScore+=1;
+                document.getElementById("trackScore").innerText = trackScore;
+                // 刷新目标位置
+                t.x = Math.random()*(canvas.width-t.w);
+                t.y = Math.random()*(canvas.height-t.h);
+            }
+        }
+    });
+    requestAnimationFrame(gameLoop);
+}
+
+// 鼠标跟随准星
+document.addEventListener("mousemove",(e)=>{
+    cross.style.left = e.clientX + "px";
+    cross.style.top = e.clientY + "px";
+});
+
+// 核心灵敏度计算公式（适配无畏契约原始比例）
+function calcSensitivity() {
+    const dpi = parseFloat(document.getElementById("dpi").value);
+    const targetEDPI = parseFloat(document.getElementById("targetEDPI").value);
+    let baseSens = targetEDPI / dpi;
+
+    // 根据测试分数动态修正灵敏度
+    const track = parseInt(document.getElementById("trackScore").innerText);
+    const aim = parseFloat(document.getElementById("aimScore").innerText);
+
+    // 追踪分数高 → 略微降低灵敏度（跟枪舒服，降低避免过冲）
+    // 瞄准分数高 → 可以小幅提高灵敏度
+    let adjust = 1.0;
+    if(track > 30) adjust *= 0.94;
+    if(track > 60) adjust *= 0.88;
+    if(aim > 70) adjust *= 1.06;
+    if(aim > 85) adjust *= 1.12;
+
+    let final = baseSens * adjust;
+    // 强制限制在无畏契约合法区间 0.10 ~ 10.00
+    final = Math.max(0.10, Math.min(10.00, final));
+    final = parseFloat(final.toFixed(2));
+    const finalEDPI = Math.round(final * dpi);
+
+    document.getElementById("finalSens").innerText = final;
+    document.getElementById("finalEDPI").innerText = finalEDPI;
+}
+</script>
+</body>
+</html>
+
